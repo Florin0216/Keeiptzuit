@@ -16,3 +16,4 @@ local.properties
 
 # Project exclude paths
 /openCV/build/
+app/google-services.json

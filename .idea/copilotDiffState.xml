@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="/AppModule (snapshot).kt">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="/AppModule (snapshot).kt" />
+              <option name="originalContent" value="package com.example.keeiptzuit.di&#10;&#10;import android.content.Context&#10;import androidx.credentials.CredentialManager&#10;import com.google.firebase.auth.FirebaseAuth&#10;import com.google.firebase.firestore.FirebaseFirestore&#10;import dagger.Module&#10;import dagger.Provides&#10;import dagger.hilt.InstallIn&#10;import dagger.hilt.android.qualifiers.ApplicationContext&#10;import dagger.hilt.components.SingletonComponent&#10;import javax.inject.Singleton&#10;&#10;@Module&#10;@InstallIn(SingletonComponent::class)&#10;object AppModule {&#10;&#10;    @Provides&#10;    @Singleton&#10;    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()&#10;&#10;    @Provides&#10;    @Singleton&#10;    fun provideFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()&#10;&#10;    @Provides&#10;    @Singleton&#10;    fun provideCredentialManager(@ApplicationContext context: Context): CredentialManager {&#10;        return CredentialManager.create(context)&#10;    }&#10;}" />
+              <option name="updatedContent" value="package com.example.keeiptzuit.di&#10;&#10;import com.google.firebase.auth.FirebaseAuth&#10;import com.google.firebase.firestore.FirebaseFirestore&#10;import dagger.Module&#10;import dagger.Provides&#10;import dagger.hilt.InstallIn&#10;import dagger.hilt.components.SingletonComponent&#10;import javax.inject.Singleton&#10;&#10;@Module&#10;@InstallIn(SingletonComponent::class)&#10;object AppModule {&#10;&#10;    @Provides&#10;    @Singleton&#10;    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()&#10;&#10;    @Provides&#10;    @Singleton&#10;    fun provideFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()&#10;}" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>
