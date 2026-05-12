@@ -1,7 +1,10 @@
-package com.example.keeiptzuit.features.scanner.presentation.scannerCamera
+package com.example.keeiptzuit.features.scanner.presentation.camera
 
 import android.Manifest
 import android.util.Size
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -14,17 +17,22 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -41,8 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.keeiptzuit.features.scanner.presentation.shared.ScannerIntent
-import com.example.keeiptzuit.features.scanner.presentation.shared.ScannerViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.keeiptzuit.features.scanner.presentation.shared.SharedViewModel
 import com.example.keeiptzuit.features.scanner.utils.ImageManipulationUtils
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -52,19 +60,26 @@ import java.util.concurrent.Executors
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun ScannerCameraScreen(
+fun CameraScreen(
     onNavigateToResult: () -> Unit,
-    viewModel: ScannerViewModel
+    viewModel: CameraViewModel = hiltViewModel(),
+    sharedViewModel: SharedViewModel
 ) {
-    val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val surfaceRequest by viewModel.surfaceRequest.collectAsStateWithLifecycle()
+    val points by viewModel.points.collectAsStateWithLifecycle()
+    val imageSize by viewModel.imageSize.collectAsStateWithLifecycle()
+    val scannedBitmap by sharedViewModel.scannedBitmap.collectAsStateWithLifecycle()
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
     val imageCapture = remember {
         ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             .build()
     }
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) {}
     if (!cameraPermissionState.status.isGranted) {
         LaunchedEffect(Unit) {
             cameraPermissionState.launchPermissionRequest()
@@ -72,8 +87,8 @@ fun ScannerCameraScreen(
         Text(text = "Camera permission is required to scan receipts.")
         return
     }
-    LaunchedEffect(state.scannedBitmap) {
-        if (state.scannedBitmap != null) {
+    LaunchedEffect(scannedBitmap) {
+        if (scannedBitmap != null) {
             onNavigateToResult()
         }
     }
@@ -82,7 +97,7 @@ fun ScannerCameraScreen(
         val provider = ProcessCameraProvider.awaitInstance(context)
         val preview = Preview.Builder().build().apply {
             setSurfaceProvider { request ->
-                viewModel.processIntent(ScannerIntent.SurfaceRequestUpdate(request))
+                viewModel.setSurfaceRequest(request)
             }
         }
 
@@ -91,7 +106,7 @@ fun ScannerCameraScreen(
             .build()
             .also { analysis ->
                 analysis.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
-                    viewModel.processIntent(ScannerIntent.AnalyzeImage(imageProxy))
+                    viewModel.analyzeImage(imageProxy)
                 }
             }
 
@@ -105,45 +120,98 @@ fun ScannerCameraScreen(
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        state.surfaceRequest?.let { request ->
-            CameraXViewfinder(surfaceRequest = request)
-        }
-        GuideOverlay(
-            points = state.points,
-            sourceSize = state.imageSize
-        )
-        state.error?.let { err ->
-            Text(
-                text = err,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.align(Alignment.Center)
-            )
-        }
-        Box(
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Black
+    ) { paddingValues ->
+
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 32.dp)
-                .padding(horizontal = 48.dp)
-                .align(Alignment.BottomCenter)
+                .fillMaxSize()
+                .padding(paddingValues)
         ) {
-            Button(
-                onClick = {
-                    imageCapture.takePicture(ContextCompat.getMainExecutor(context),
-                        object : ImageCapture.OnImageCapturedCallback() {
-                            override fun onCaptureSuccess(image: ImageProxy) {
-                                viewModel.processIntent(ScannerIntent.CaptureImage(image))
-                            }
-                        })
-                },
+            Box(
                 modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(Color.Transparent)
-                    .border(4.dp, Color.White, CircleShape)
-                    .padding(6.dp)
-            ) {}
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+
+                surfaceRequest?.let { request ->
+                    CameraXViewfinder(
+                        surfaceRequest = request,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                GuideOverlay(
+                    points = points,
+                    sourceSize = imageSize
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.Black)
+                    .padding(vertical = 24.dp, horizontal = 32.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(80.dp)
+                        .border(4.dp, Color.White, CircleShape)
+                        .padding(6.dp)
+                        .clip(CircleShape)
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Button(
+                        onClick = {
+                            imageCapture.takePicture(
+                                ContextCompat.getMainExecutor(context),
+                                object : ImageCapture.OnImageCapturedCallback() {
+                                    override fun onCaptureSuccess(image: ImageProxy) {
+                                        val bitmap = viewModel.captureImage(image)
+                                        sharedViewModel.setBitmap(bitmap)
+                                    }
+                                }
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White
+                        ),
+                        modifier = Modifier.fillMaxSize()
+                    ) {}
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(Color.DarkGray)
+                        .border(
+                            1.dp,
+                            Color.White.copy(alpha = 0.3f),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    IconButton(
+                        onClick = {
+                            galleryLauncher.launch(
+                                PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly
+                                )
+                            )
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoLibrary,
+                            contentDescription = "Gallery",
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
         }
     }
 }
