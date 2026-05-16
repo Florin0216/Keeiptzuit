@@ -22,26 +22,22 @@ import javax.inject.Inject
 import androidx.core.graphics.createBitmap
 import org.opencv.android.Utils
 
+data class DetectionResult(
+    val points: List<Point>,
+    val size: Size
+)
+
 @HiltViewModel
 class CameraViewModel @Inject constructor() : ViewModel() {
     private val _surfaceRequest = MutableStateFlow<SurfaceRequest?>(null)
     val surfaceRequest: StateFlow<SurfaceRequest?> = _surfaceRequest
-
-    private val _points = MutableStateFlow<List<Point>?>(null)
-    val points: StateFlow<List<Point>?> = _points
-
-    private val _imageSize = MutableStateFlow<Size?>(null)
-    val imageSize: StateFlow<Size?> = _imageSize
-
-    private val _analyzerBitmap = MutableStateFlow<Bitmap?>(null)
-    val analyzerBitmap: StateFlow<Bitmap?> = _analyzerBitmap
 
     fun setSurfaceRequest(request: SurfaceRequest?) {
         _surfaceRequest.value = request
     }
 
     @OptIn(ExperimentalGetImage::class)
-    fun analyzeImage(imageProxy: ImageProxy) {
+    fun analyzeImage(imageProxy: ImageProxy, onResult: (DetectionResult) -> Unit) {
         try {
             val rotation = imageProxy.imageInfo.rotationDegrees
             val mediaImage = imageProxy.image ?: return
@@ -68,18 +64,13 @@ class CameraViewModel @Inject constructor() : ViewModel() {
             val blurred = Mat()
             Imgproc.GaussianBlur(gray, blurred, org.opencv.core.Size(9.0, 9.0), 0.0)
 
-
             val edges = Mat()
             Imgproc.Canny(blurred, edges, 50.0, 150.0)
 
-            val debugBitmap = createBitmap(edges.cols(), edges.rows())
-            Utils.matToBitmap(edges, debugBitmap)
-            _analyzerBitmap.value = debugBitmap
-
             val detectedPoints = ImageManipulationUtils.detectEdges(rotatedMat)
+
             if (detectedPoints.isNotEmpty()) {
-                _points.value = detectedPoints
-                _imageSize.value = currentSize
+                onResult(DetectionResult(detectedPoints, currentSize))
             }
 
             mat.release()
@@ -92,34 +83,32 @@ class CameraViewModel @Inject constructor() : ViewModel() {
         }
     }
 
-    fun captureImage(imageProxy: ImageProxy): Bitmap? {
-        try {
-            var bitmap = imageProxy.toBitmap()
-            val rotation = imageProxy.imageInfo.rotationDegrees
-            if (rotation != 0) {
-                val matrix = Matrix()
-                matrix.postRotate(rotation.toFloat())
-                bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-            }
+    fun rotateImage(imageProxy: ImageProxy): Bitmap {
+        var bitmap = imageProxy.toBitmap()
+        val rotation = imageProxy.imageInfo.rotationDegrees
+        if (rotation != 0) {
+            val matrix = Matrix()
+            matrix.postRotate(rotation.toFloat())
+            bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        }
+        return bitmap
+    }
 
-            val imageSize = _imageSize.value ?: return null
-            val points = _points.value ?: return null
+    fun processImage(bitmap: Bitmap, points: List<Point>?, size: Size?): Bitmap? {
+        return try {
+            val currentSize = size ?: return null
+            val scaleX = bitmap.width.toFloat() / currentSize.width
+            val scaleY = bitmap.height.toFloat() / currentSize.height
 
-            val scaleX = bitmap.width.toFloat() / imageSize.width
-            val scaleY = bitmap.height.toFloat() / imageSize.height
-
-            val scaledPoints = points.map { p ->
+            val scaledPoints = points?.map { p ->
                 Point(p.x * scaleX, p.y * scaleY)
             }
 
             val warped = ImageManipulationUtils.warpPerspective(bitmap, scaledPoints) ?: return null
-            return ImageEnhancer.enhanceImage(warped)
-
+            ImageEnhancer.enhanceImage(warped)
         } catch (e: Exception) {
             e.printStackTrace()
-            return null
-        } finally {
-            imageProxy.close()
+            null
         }
     }
 }

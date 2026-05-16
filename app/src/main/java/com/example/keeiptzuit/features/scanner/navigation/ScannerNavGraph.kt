@@ -10,6 +10,7 @@ import com.example.keeiptzuit.features.main.navigation.Main
 import com.example.keeiptzuit.features.scanner.presentation.analysis.AnalysisScreen
 import com.example.keeiptzuit.features.scanner.presentation.camera.CameraScreen
 import com.example.keeiptzuit.features.scanner.presentation.confirmation.ConfirmationScreen
+import com.example.keeiptzuit.features.scanner.presentation.crop.CropScreen
 import com.example.keeiptzuit.features.scanner.presentation.shared.SharedViewModel
 import kotlinx.serialization.Serializable
 
@@ -25,6 +26,9 @@ data object Confirmation
 @Serializable
 data object Analysis
 
+@Serializable
+data object Crop
+
 fun NavGraphBuilder.scannerNavGraph(navController: NavController) {
     navigation<Scanner>(startDestination = Camera) {
         composable<Camera> { backStackEntry ->
@@ -35,6 +39,9 @@ fun NavGraphBuilder.scannerNavGraph(navController: NavController) {
             CameraScreen(
                 onNavigateToResult = {
                     navController.navigate(Confirmation)
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
                 },
                 sharedViewModel = sharedViewModel
             )
@@ -50,6 +57,9 @@ fun NavGraphBuilder.scannerNavGraph(navController: NavController) {
                 },
                 onConfirm = {
                     navController.navigate(Analysis)
+                },
+                onCropPhoto = {
+                    navController.navigate(Crop)
                 },
                 sharedViewModel = sharedViewModel
             )
@@ -69,6 +79,19 @@ fun NavGraphBuilder.scannerNavGraph(navController: NavController) {
                         }
                     }
                 }
+            )
+        }
+        composable<Crop> { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry<Scanner>()
+            }
+            val sharedViewModel: SharedViewModel = hiltViewModel(parentEntry)
+
+             CropScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                sharedViewModel = sharedViewModel
             )
         }
     }

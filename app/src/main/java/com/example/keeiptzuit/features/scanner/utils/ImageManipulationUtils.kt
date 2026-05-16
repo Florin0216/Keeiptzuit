@@ -39,11 +39,13 @@ object ImageManipulationUtils {
         )
 
         // Sort contours by area, descending
-        contours.sortByDescending { Imgproc.contourArea(it) }
+        val topContours = contours.toList()
+            .sortedByDescending { Imgproc.contourArea(it) }
+            .take(5)
 
         var rawPoints: List<Point> = emptyList()
 
-        for (contour in contours) {
+        for (contour in topContours) {
             val peri = Imgproc.arcLength(MatOfPoint2f(*contour.toArray()), true)
             val approx = MatOfPoint2f()
             Imgproc.approxPolyDP(MatOfPoint2f(*contour.toArray()), approx, 0.08 * peri, true)
@@ -57,13 +59,12 @@ object ImageManipulationUtils {
 
         gray.release()
         edges.release()
-        mat.release()
 
         return rawPoints
     }
 
-    fun warpPerspective(inputBitmap: Bitmap, corners: List<Point>): Bitmap? {
-        if (corners.size != 4) return null
+    fun warpPerspective(inputBitmap: Bitmap, corners: List<Point>?): Bitmap? {
+        if (corners?.size != 4) return null
 
         // Sort corners: TL, TR, BR, BL
         val sorted = sortCornersTLTRBRBL(corners)
